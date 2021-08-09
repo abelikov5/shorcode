@@ -1,0 +1,163 @@
+<style>@import url(https://weremoveserv.it/lib/dropzone.css);</style>
+<style>@import url(https://weremoveserv.it/fonts/style.css);</style>
+
+    
+<form action="https://weremoveserv.it/jquery.php" class="dropzone">
+    <div class="fallback">
+        <input name="file" type="file" multiple />
+    </div>
+</form>
+<div class="download_photo">
+    <!-- <div>
+        <span class="icon-download"></span>
+        <span class="icon-close"></span>
+    </div> -->
+
+</div>
+<style>
+    .icon-close, .icon-download {
+        cursor: pointer;
+        width: 20px;
+        height: 20px;
+        transition: 0.5s;
+    }
+    .icon-close:hover {
+        background-color: red;
+        color: white;
+        transition: 0.5s;
+    }
+    .icon-download:hover {
+        background-color: #0055ff;
+        color: white;
+        transition: 0.5s;
+    }
+</style>
+
+<script src="https://weremoveserv.it/lib/dropzone.js"></script>
+<script src="https://clippingmagic.com/api/v1/ClippingMagic.js" type="text/javascript"></script>
+<script type="text/javascript">
+
+function update_localstorage() {
+    let answ0 = localStorage.getItem('credits_total');   
+    let answ1 = localStorage.getItem('credits_use');    
+    let answ2 = localStorage.getItem('credits_now');
+    answ1 = parseInt(answ1) + 1;
+    answ2 = parseInt(answ0) - parseInt(answ1);
+    localStorage.setItem('credits_use', answ1);
+    localStorage.setItem('credits_now', answ2);
+}
+
+function add_to_db(img_url) {
+    const webhook = 'https://weremoveserv.it/api/set_img.php';
+    let   user_id = localStorage.getItem('user_id');
+    let   request = new XMLHttpRequest();
+    request.open("POST", webhook, true);
+    request.setRequestHeader("Content-Type", "application/json");
+    let data = JSON.stringify({
+        "user_id": user_id,
+        "photo_png": img_url,
+    });
+    request.send(data);
+    update_localstorage();
+    // console.log('add to db');
+}
+
+// узнаем id в Базе Данных и количество доступных бонусов
+function get_user_id() {
+    let tmp = document.querySelector('span.display-name');
+    if (typeof(tmp) != "undefined" && tmp !== null) {
+        tmp = tmp.textContent;
+        const webhook = 'https://weremoveserv.it/api/get_id.php';
+        let request = new XMLHttpRequest();
+        request.open("POST", webhook, true);
+        request.setRequestHeader("Content-Type", "application/json");
+        let data = JSON.stringify({
+            "user": tmp,
+        });
+        request.send(data);
+        request.onreadystatechange = function () {
+            if (request.readyState == XMLHttpRequest.DONE) {
+                let ans = request.responseText.split(';');
+                localStorage.setItem('credits_total', ans[1]);
+                localStorage.setItem('credits_use', ans[2]);
+                localStorage.setItem('credits_now', parseInt(ans[1]) - parseInt(ans[2]));
+
+                console.log('server answ:', request.responseText);             
+            }
+        };
+    }
+} get_user_id();
+
+function download_result (id) {
+let get_link = 'https://weremove.it/get_only/?id=' + id;
+console.log(get_link);
+
+let xhr = new XMLHttpRequest();
+xhr.open("GET", get_link, true);
+xhr.send();
+xhr.onload = function() {
+    if (xhr.status != 200) { // анализируем HTTP-статус ответа, если статус не 200, то произошла ошибка
+        alert(`Ошибка ${xhr.status}: ${xhr.statusText}`); // Например, 404: Not Found
+    } else { // если всё прошло гладко, выводим результат
+        let div = document.createElement('div');
+        div.className = "foto_upload";
+        div.innerHTML = '<a download href="' + xhr.responseText + '"><img src="' + xhr.responseText + '" alt="" width="140px" height="140px"><br><div><span class="icon-download"></span><span class="icon-close"></span></div></a>';
+        document.querySelector('.download_photo').prepend(div);//innerHTML = '<a href="' + xhr.responseText + '">download result</a>';
+        console.log('link download img', xhr.responseText);
+        add_to_db(xhr.responseText);
+    }
+};
+}
+
+function myCallback(opts) {
+// TODO: Replace this with your own functionality
+switch (opts.event) {
+  case "error":
+      alert("An error occurred: " + opts.error.status + ", " + opts.error.code + ", " + opts.error.message);
+      break;
+
+  case "result-generated":
+      let tmp = document.querySelector('span.display-name');
+      let credits_now = localStorage.getItem('credits_now');
+      if (typeof(tmp) != "undefined" && tmp !== null) {
+          // если количество доступных кредитов меньше 1;
+          if (parseInt(credits_now) < 1) {
+            // открываем модальное окно из plugins (popupamker)
+            PUM.open(871);
+          } else {
+            download_result(opts.image.id);
+          }
+
+      } else {
+        // если пользователь не залогинен перебрасываем на страницу с расценками  
+        document.location.href = "https://weremove.it/pricing/";
+      }
+      break;
+
+  case "editor-exit":
+      alert("The editor dialog closed");
+      break;
+}
+}
+var errorsArray = ClippingMagic.initialize({apiId: 8668});
+if (errorsArray.length > 0) alert("Sorry, your browser is missing some required features: \n\n " + errorsArray.join("\n "));
+</script>
+<script>
+function start_edit_upload_photo(id, secret) {
+    // console.log(id, secret, 'id and sectret');
+    ClippingMagic.edit({
+        "image" : {
+        "id" : id,
+        "secret" : secret
+        },
+        "useStickySettings" : true,
+        "locale" : "en-US"
+    }, myCallback);
+}
+
+</script>
+<style>
+.download_photo {
+    display: flex;
+}
+</style>
